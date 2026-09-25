@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>دوربین خانوادگی</title>
+
+<style>
+*{box-sizing:border-box}
+
+body{
+    margin:0;
+    min-height:100vh;
+    font-family:Tahoma,Arial,sans-serif;
+    background:linear-gradient(135deg,#101827,#172554,#0f172a);
+    color:white;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+}
+
+.container{
+    width:min(900px,94%);
+    background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.15);
+    backdrop-filter:blur(15px);
+    border-radius:25px;
+    padding:30px;
+    box-shadow:0 20px 60px rgba(0,0,0,.4);
+}
+
+h1{
+    text-align:center;
+    margin-top:0;
+}
+
+button{
+    border:0;
+    border-radius:12px;
+    padding:13px 22px;
+    margin:6px;
+    font-size:16px;
+    cursor:pointer;
+    background:#2563eb;
+    color:white;
+}
+
+button:hover{
+    opacity:.85;
+}
+
+input{
+    width:100%;
+    padding:14px;
+    border-radius:12px;
+    border:0;
+    margin:8px 0;
+    font-size:16px;
+}
+
+video{
+    width:100%;
+    max-height:500px;
+    background:#000;
+    border-radius:18px;
+    margin-top:15px;
+}
+
+.box{
+    background:rgba(0,0,0,.2);
+    padding:20px;
+    border-radius:18px;
+    margin-top:20px;
+}
+
+.hidden{
+    display:none;
+}
+
+.code{
+    font-size:28px;
+    text-align:center;
+    letter-spacing:4px;
+    padding:15px;
+    background:#0005;
+    border-radius:12px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>📹 دوربین خانوادگی</h1>
+
+<div id="menu">
+
+    <div class="box">
+        <h2>👦 دستگاه دوربین</h2>
+        <p>
+            با انتخاب این گزینه، مرورگر برای دسترسی به دوربین
+            از شما اجازه می‌خواهد.
+        </p>
+        <button onclick="startCamera()">فعال کردن دوربین</button>
+    </div>
+
+    <div class="box">
+        <h2>👨‍👩‍👦 مشاهده‌کننده</h2>
+        <p>کد دستگاه دوربین را وارد کنید:</p>
+
+        <input id="remoteId" placeholder="کد اتصال را وارد کنید">
+
+        <button onclick="watchCamera()">
+            مشاهده دوربین
+        </button>
+    </div>
+
+</div>
+
+<div id="cameraPage" class="hidden">
+
+    <h2>📷 دوربین فعال است</h2>
+
+    <p>کد اتصال را به دستگاه مشاهده‌کننده بده:</p>
+
+    <div id="myId" class="code">در حال ساخت...</div>
+
+    <video id="localVideo" autoplay muted playsinline></video>
+
+    <button onclick="stopCamera()">خاموش کردن دوربین</button>
+
+</div>
+
+<div id="viewerPage" class="hidden">
+
+    <h2>👀 تصویر زنده</h2>
+
+    <video id="remoteVideo" autoplay playsinline controls></video>
+
+    <button onclick="location.reload()">قطع اتصال</button>
+
+</div>
+
+</div>
+
+
+<!-- PeerJS -->
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
+<script>
+
+let peer;
+let localStream;
+let currentCall;
+
+
+/* =========================
+   CAMERA
+========================= */
+
+async function startCamera(){
+
+    try{
+
+        localStream = await navigator.mediaDevices.getUserMedia({
+            video:true,
+            audio:true
+        });
+
+        document.getElementById("menu").classList.add("hidden");
+        document.getElementById("cameraPage").classList.remove("hidden");
+
+        document.getElementById("localVideo").srcObject = localStream;
+
+        peer = new Peer();
+
+        peer.on("open", id => {
+
+            document.getElementById("myId").innerText = id;
+
+        });
+
+        peer.on("call", call => {
+
+            currentCall = call;
+
+            call.answer(localStream);
+
+        });
+
+    }catch(error){
+
+        alert(
+            "دسترسی به دوربین داده نشد.\n\n" +
+            "باید اجازه Camera و Microphone را بدهی."
+        );
+
+        console.error(error);
+    }
+}
+
+
+/* =========================
+   STOP CAMERA
+========================= */
+
+function stopCamera(){
+
+    if(localStream){
+
+        localStream.getTracks().forEach(track => {
+            track.stop();
+        });
+
+    }
+
+    if(peer){
+        peer.destroy();
+    }
+
+    location.reload();
+}
+
+
+/* =========================
+   WATCH
+========================= */
+
+function watchCamera(){
+
+    const remoteId =
+        document.getElementById("remoteId").value.trim();
+
+    if(!remoteId){
+
+        alert("کد اتصال را وارد کن.");
+        return;
+
+    }
+
+    document.getElementById("menu").classList.add("hidden");
+    document.getElementById("viewerPage").classList.remove("hidden");
+
+    peer = new Peer();
+
+    peer.on("open", () => {
+
+        const call = peer.call(
+            remoteId,
+            null
+        );
+
+        currentCall = call;
+
+        call.on("stream", remoteStream => {
+
+            document.getElementById("remoteVideo").srcObject =
+                remoteStream;
+
+        });
+
+        call.on("error", error => {
+
+            alert("اتصال برقرار نشد.");
+
+            console.error(error);
+
+        });
+
+    });
+
+}
+
+</script>
+
+</body>
+</html>
